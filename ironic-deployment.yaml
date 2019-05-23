@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ironic-metal3
+  namespace: metal3
+  labels:
+    application: ironic
+    component: baremetal
+    stack: metal3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      application: ironic-metal3
+  template:
+    metadata:
+      labels:
+        application: ironic-metal3
+    spec:
+      containers:
+      - name: ironic
+        image: kkalynovskyi/ironic-image:latest
+        ports:
+        - containerPort: 6385
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+        env:
+          - name: MARIADB_PASSWORD
+            value: q1w2e3r4
+          - name: HTTP_PORT
+            value: "30180"
+          - name: IP
+            value: 127.0.0.1
+          - name: INTERFACE
+            value: eth0
+          - name: IRONIC_INSPECTOR_PORT
+            value: "5050"
+          - name: IRONIC_API_PORT
+            value: "30385"
+          - name: IRONIC_API_HOST
+            value: "10.212.0.41"
+          - name: IRONIC_INSPECTOR_HOST
+            value: "127.0.0.1"
+          - name: HTTP_IP
+            value: "10.212.0.41"
+        imagePullPolicy: Always
+      - name: mariadb
+        image: kkalynovskyi/ironic-image:latest
+        command: ["/bin/runmariadb"]
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+        env:
+          - name: MARIADB_PASSWORD
+            value: q1w2e3r4
+        imagePullPolicy: Always
+      - name: ironic-inspector
+        image: quay.io/metal3-io/ironic-inspector
+        ports:
+        - containerPort: 5050
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+        env:
+          - name: MARIADB_PASSWORD
+            value: q1w2e3r4
+          - name: INTERFACE
+            value: eth0
+      initContainers:
+      - name: download-ironic-images
+        image: busybox:1.28
+        command: ['sh']
+        args: 
+          - '-c' 
+          - 'mkdir -p /shared/html/images; cd /shared/html/images; stat ironic-python-agent.initramfs || wget https://images.rdoproject.org/master/rdo_trunk/current-tripleo-rdo/ironic-python-agent.tar -O - | tar -x'
+        volumeMounts:
+        - mountPath: /shared
+          name: shared-data 
+      - name: download-centos-images
+        image: busybox:1.28
+        command: ['sh']
+        args:
+          - '-c' 
+          - 'mkdir -p /shared/html/images; cd /shared/html/images stat CentOS-7-x86_64-GenericCloud-1901.qcow2 || wget http://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-1901.qcow2'
+        volumeMounts:
+        - mountPath: /shared
+          name: shared-data 
+      volumes:
+      - name: shared-data 
+        persistentVolumeClaim:
+          claimName: shared-metal3
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ironic-metal3
+  namespace: metal3
+spec:
+  selector:
+    application: ironic-metal3
+  ports:
+  - protocol: TCP
+    port: 5050
+    targetPort: 5050
+    nodePort: 30050
+    name: ironic-inspector
+  - protocol: TCP
+    port: 6385 
+    targetPort: 6385
+    nodePort: 30385
+    name: ironic-api
+  type: NodePort

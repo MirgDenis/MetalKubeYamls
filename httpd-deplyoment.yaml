@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpd-metal3
+  namespace: metal3
+  labels:
+    application: httpd
+    component: baremetal
+    stack: metal3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      application: httpd-metal3
+  template:
+    metadata:
+      labels:
+        application: httpd-metal3
+    spec:
+      containers:
+      - name: httpd
+        imagePullPolicy: Always
+        image: kkalynovskyi/ironic-image:latest
+        command: ["/bin/runhttpd"]
+        env:
+        - name: IP
+          value: "10.212.0.41"
+        - name: HTTP_PORT
+          value: "30180"
+        volumeMounts:
+        - mountPath: /shared
+          name: ironic-images
+        ports:
+        - containerPort: 30180
+      initContainers:
+      - name: download-ironic-images
+        image: busybox:1.28
+        command: ['sh']
+        args: 
+          - '-c' 
+          - 'mkdir -p /shared/html/images; cd /shared/html/images; stat ironic-python-agent.initramfs || wget https://images.rdoproject.org/master/rdo_trunk/current-tripleo-rdo/ironic-python-agent.tar -O - | tar -x'
+        volumeMounts:
+        - mountPath: /shared
+          name: ironic-images
+      - name: download-centos-images
+        image: busybox:1.28
+        command: ['sh']
+        args:
+          - '-c' 
+          - 'mkdir -p /shared/html/images; cd /shared/html/images; stat CentOS-7-x86_64-GenericCloud-1901.qcow2 || wget http://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-1901.qcow2'
+        volumeMounts:
+        - mountPath: /shared
+          name: ironic-images
+      volumes:
+      - name: ironic-images 
+        persistentVolumeClaim:
+          claimName: shared-metal3
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpd-metal3
+  namespace: metal3
+spec:
+  selector:
+    application: httpd-metal3
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 30180
+    nodePort: 30180
+  type: NodePort

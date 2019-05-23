@@ -1,0 +1,23 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kube-worker-bmc-secret
+  namespace: metal3
+type: Opaque
+data:
+  username: <IMPI username>
+  password: <IPMI password>
+
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: kube-worker
+  namespace: metal3
+spec:
+  online: false
+  bootMACAddress: <MAC address of PXE boot NIC>
+  bmc:
+    address: ipmi://<IPMI IP>
+    credentialsName: kube-worker-bmc-secret

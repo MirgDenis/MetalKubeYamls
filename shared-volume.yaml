@@ -1,0 +1,16 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: metal3-shared
+  namespace: metal3
+  labels:
+    stack: metal3
+    purpose: shared
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/var/minikube-volumes/metal3/default/shared"

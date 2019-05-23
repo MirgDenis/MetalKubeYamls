@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dnsmasq-metal3
+  namespace: kube-system
+  labels:
+    application: metal3-dnsmasq
+spec:
+  selector:
+    matchLabels:
+      name: metal3-dnsmasq
+  template:
+    metadata:
+      labels:
+        name: metal3-dnsmasq
+    spec:
+      hostNetwork: true
+      containers:
+      - name: dnsmasq
+        image: quay.io/metal3-io/ironic
+        command: ["/bin/rundnsmasq"]
+        env:
+        - name: DHCP_RANGE
+          value: "10.212.0.50,10.212.0.100"
+        - name: IP
+          value: "10.212.0.41"
+        - name: HTTP_PORT
+          value: "30180"
+        - name: INTERFACE
+          value: "ens1f0"
